@@ -1,0 +1,34 @@
+name: Daily ETL and Upload to Google Drive
+
+# 📅 Déclencher tous les jours à 6h du matin + possibilité de lancer manuellement
+on:
+  schedule:
+    - cron: '0 6 * * *'   # tous les jours à 06:00 UTC (07:00 ou 08:00 au Maroc selon saison)
+  workflow_dispatch:
+
+jobs:
+  run-etl:
+    runs-on: ubuntu-latest
+
+    # 🔒 Variables d'environnement, récupérées depuis tes secrets GitHub
+    env:
+      CLIENT_ID: ${{ secrets.CLIENT_ID }}
+      CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+      REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+      ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+    - name: Run ETL and upload to Google Drive
+      run: |
+        python etl_upload.py
