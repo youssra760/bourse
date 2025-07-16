@@ -64,37 +64,43 @@ if all_dataframes:
     conn.close()
     print("🎉 Données sauvegardées localement dans bourses.db")
 
-    # ✅ Upload sur Google Drive
-    print("☁ Upload vers Google Drive...")
+   # ✅ Upload sur Google Drive
+print("☁ Upload vers Google Drive...")
 
-    creds = Credentials(
-        None,
-        refresh_token=REFRESH_TOKEN,
-        client_id=CLIENT_ID,
-        client_secret=CLIENT_SECRET,
-        token_uri="https://oauth2.googleapis.com/token"
-    )
+creds = Credentials(
+    None,
+    refresh_token=REFRESH_TOKEN,
+    client_id=CLIENT_ID,
+    client_secret=CLIENT_SECRET,
+    token_uri="https://oauth2.googleapis.com/token"
+)
 
-    # Rafraîchir le token si besoin
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
+if creds and creds.expired and creds.refresh_token:
+    creds.refresh(Request())
 
-    service = build("drive", "v3", credentials=creds)
+service = build("drive", "v3", credentials=creds)
 
-    # Upload du fichier
-    file_metadata = {
-        "name": db_filename,  # le nom sur Google Drive
-        "mimeType": "application/x-sqlite3"
-    }
-    media = MediaFileUpload(db_filename, mimetype="application/x-sqlite3")
+# Chercher s'il existe déjà un fichier avec le même nom
+query = f"name='{db_filename}' and mimeType='application/x-sqlite3' and trashed=false"
+results = service.files().list(q=query, fields="files(id, name)").execute()
+items = results.get('files', [])
 
+media = MediaFileUpload(db_filename, mimetype="application/x-sqlite3")
+
+if items:
+    # Fichier existe → update
+    file_id = items[0]['id']
+    updated_file = service.files().update(
+        fileId=file_id,
+        media_body=media
+    ).execute()
+    print(f"♻ Fichier mis à jour sur Google Drive (ID: {file_id})")
+else:
+    # Fichier n'existe pas → create
+    file_metadata = {"name": db_filename, "mimeType": "application/x-sqlite3"}
     uploaded_file = service.files().create(
         body=file_metadata,
         media_body=media,
         fields="id"
     ).execute()
-
     print(f"✅ Upload réussi ! File ID: {uploaded_file.get('id')}")
-
-else:
-    print("⚠ Aucune donnée récupérée, ETL interrompu.")
