@@ -2,7 +2,6 @@ import os
 import requests
 import time
 import pandas as pd
-import sqlite3
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -50,57 +49,56 @@ for symbol in symbols:
         print(f"❌ Exception pour {symbol}: {e}")
     time.sleep(15)  # respecter la limite API
 
-# ✅ Sauvegarde dans SQLite
+# ✅ Sauvegarde dans un fichier CSV
 if all_dataframes:
     final_df = pd.concat(all_dataframes, ignore_index=True)
     final_df["date"] = pd.to_datetime(final_df["date"])
     final_df[["open", "high", "low", "close"]] = final_df[["open", "high", "low", "close"]].astype(float)
     final_df["volume"] = final_df["volume"].astype(int)
 
-    print("💾 Sauvegarde dans bourses.db...")
-    db_filename = "bourses.db"
-    conn = sqlite3.connect(db_filename)
-    final_df.to_sql("historical_data", conn, if_exists="replace", index=False)
-    conn.close()
-    print("🎉 Données sauvegardées localement dans bourses.db")
+    csv_filename = "bourses.csv"
+    final_df.to_csv(csv_filename, index=False)
+    print("💾 Données sauvegardées localement dans bourses.csv")
 
-   # ✅ Upload sur Google Drive
-print("☁ Upload vers Google Drive...")
+    # ✅ Upload vers Google Drive
+    print("☁ Upload vers Google Drive...")
 
-creds = Credentials(
-    None,
-    refresh_token=REFRESH_TOKEN,
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
-    token_uri="https://oauth2.googleapis.com/token"
-)
+    creds = Credentials(
+        None,
+        refresh_token=REFRESH_TOKEN,
+        client_id=CLIENT_ID,
+        client_secret=CLIENT_SECRET,
+        token_uri="https://oauth2.googleapis.com/token"
+    )
 
-if creds and creds.expired and creds.refresh_token:
-    creds.refresh(Request())
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
 
-service = build("drive", "v3", credentials=creds)
+    service = build("drive", "v3", credentials=creds)
 
-# Chercher s'il existe déjà un fichier avec le même nom
-query = f"name='{db_filename}' and mimeType='application/x-sqlite3' and trashed=false"
-results = service.files().list(q=query, fields="files(id, name)").execute()
-items = results.get('files', [])
+    # Chercher s'il existe déjà un fichier avec le même nom
+    query = f"name='{csv_filename}' and mimeType='text/csv' and trashed=false"
+    results = service.files().list(q=query, fields="files(id, name)").execute()
+    items = results.get('files', [])
 
-media = MediaFileUpload(db_filename, mimetype="application/x-sqlite3")
+    media = MediaFileUpload(csv_filename, mimetype="text/csv")
 
-if items:
-    # Fichier existe → update
-    file_id = items[0]['id']
-    updated_file = service.files().update(
-        fileId=file_id,
-        media_body=media
-    ).execute()
-    print(f"♻ Fichier mis à jour sur Google Drive (ID: {file_id})")
+    if items:
+        # Fichier existe → update
+        file_id = items[0]['id']
+        updated_file = service.files().update(
+            fileId=file_id,
+            media_body=media
+        ).execute()
+        print(f"♻ Fichier mis à jour sur Google Drive (ID: {file_id})")
+    else:
+        # Fichier n'existe pas → create
+        file_metadata = {"name": csv_filename, "mimeType": "text/csv"}
+        uploaded_file = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields="id"
+        ).execute()
+        print(f"✅ Upload réussi ! File ID: {uploaded_file.get('id')}")
 else:
-    # Fichier n'existe pas → create
-    file_metadata = {"name": db_filename, "mimeType": "application/x-sqlite3"}
-    uploaded_file = service.files().create(
-        body=file_metadata,
-        media_body=media,
-        fields="id"
-    ).execute()
-    print(f"✅ Upload réussi ! File ID: {uploaded_file.get('id')}")
+    print("❌ Aucune donnée à sauvegarder")
