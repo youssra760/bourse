@@ -15,7 +15,7 @@ CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 REFRESH_TOKEN = os.environ.get("REFRESH_TOKEN")
 
 # 🏢 Symboles à extraire
-symbols = ["IBM", "AAPL", "META"]
+symbols = ["IBM", "AAPL", "META","TSLA"]
 
 all_dataframes = []
 
