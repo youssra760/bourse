@@ -15,7 +15,7 @@ CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 REFRESH_TOKEN = os.environ.get("REFRESH_TOKEN")
 
 # 🏢 Symboles à extraire
-symbols = ["IBM", "AAPL", "META","TSLA"]
+symbols = ["IBM", "AAPL", "META", "TSLA"]
 
 all_dataframes = []
 
@@ -55,6 +55,12 @@ if all_dataframes:
     final_df["date"] = pd.to_datetime(final_df["date"])
     final_df[["open", "high", "low", "close"]] = final_df[["open", "high", "low", "close"]].astype(float)
     final_df["volume"] = final_df["volume"].astype(int)
+
+    # 🔀 Trier par symbole puis date
+    final_df = final_df.sort_values(by=["symbol", "date"], ascending=[True, True])
+
+    # 📋 Réorganiser les colonnes dans le bon ordre
+    final_df = final_df[["date", "open", "high", "low", "close", "volume", "symbol"]]
 
     csv_filename = "bourses.csv"
     final_df.to_csv(csv_filename, index=False)
