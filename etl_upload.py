@@ -8,15 +8,14 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-# ✅ Variables d'environnement depuis GitHub Actions secrets
+# Variables d'environnement (à définir dans GitHub Actions ou en dur ici)
 API_KEY = os.environ.get("ALPHAVANTAGE_API_KEY")
 CLIENT_ID = os.environ.get("CLIENT_ID")
 CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 REFRESH_TOKEN = os.environ.get("REFRESH_TOKEN")
 
-# 🏢 Symboles à extraire
+# Symboles à extraire
 symbols = ["IBM", "AAPL", "META", "TSLA"]
-
 all_dataframes = []
 
 for symbol in symbols:
@@ -42,31 +41,26 @@ for symbol in symbols:
                 all_dataframes.append(df)
                 print(f"✅ Données transformées pour {symbol}")
             else:
-                print(f"⚠ Pas de données (limite API?) pour {symbol}")
+                print(f"⚠️ Pas de données (limite API?) pour {symbol}")
         else:
             print(f"❌ Erreur HTTP {response.status_code} pour {symbol}")
     except Exception as e:
         print(f"❌ Exception pour {symbol}: {e}")
-    time.sleep(15)  # respecter la limite API
+    time.sleep(15)  # Respecter la limite API
 
-# ✅ Sauvegarde dans un fichier CSV
 if all_dataframes:
     final_df = pd.concat(all_dataframes, ignore_index=True)
     final_df["date"] = pd.to_datetime(final_df["date"])
     final_df[["open", "high", "low", "close"]] = final_df[["open", "high", "low", "close"]].astype(float)
     final_df["volume"] = final_df["volume"].astype(int)
 
-    # 🔀 Trier par symbole puis date
     final_df = final_df.sort_values(by=["symbol", "date"], ascending=[True, True])
-
-    # 📋 Réorganiser les colonnes dans le bon ordre
     final_df = final_df[["date", "open", "high", "low", "close", "volume", "symbol"]]
 
     csv_filename = "bourses.csv"
     final_df.to_csv(csv_filename, index=False)
     print("💾 Données sauvegardées localement dans bourses.csv")
 
-    # ✅ Upload vers Google Drive
     print("☁ Upload vers Google Drive...")
 
     creds = Credentials(
@@ -102,4 +96,9 @@ if all_dataframes:
         file_metadata = {"name": csv_filename, "mimeType": "text/csv"}
         uploaded_file = service.files().create(
             body=file_metadata,
-            media_body=media,le script que j ai ,je peux changer le frmat vers google sheets?
+            media_body=media
+        ).execute()
+        print(f"✅ Nouveau fichier créé sur Google Drive (ID: {uploaded_file.get('id')})")
+else:
+    print("⚠️ Aucune donnée extraite.")
+
