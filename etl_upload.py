@@ -7,21 +7,20 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
-# ✅ Variables d'environnement (GitHub Actions ou .env)
+# Variables d'environnement (API keys, OAuth)
 API_KEY = os.environ.get("ALPHAVANTAGE_API_KEY")
 CLIENT_ID = os.environ.get("CLIENT_ID")
 CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 REFRESH_TOKEN = os.environ.get("REFRESH_TOKEN")
 
-# ✅ Identifiants Google Sheets
+# Identifiants Google Sheets
 SPREADSHEET_ID = "1S0WTG-AVXhaVLhSKxOJAngLDvu5rEwmgZOTIfXqwGzU"
-RANGE_NAME = "bourses!A1"
+RANGE_NAME = "Feuille1!A1"  # Le nom de l'onglet réel dans ta feuille Google
 
-# 🔁 Symboles à extraire
+# Symboles à récupérer
 symbols = ["IBM", "AAPL", "META", "TSLA"]
 all_dataframes = []
 
-# 📥 Extraction et transformation
 for symbol in symbols:
     print(f"🔄 Extraction pour : {symbol}")
     url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={API_KEY}"
@@ -45,59 +44,53 @@ for symbol in symbols:
                 all_dataframes.append(df)
                 print(f"✅ Données transformées pour {symbol}")
             else:
-                print(f"⚠ Pas de données (limite API?) pour {symbol}")
+                print(f"⚠️ Pas de données (limite API?) pour {symbol}")
         else:
             print(f"❌ Erreur HTTP {response.status_code} pour {symbol}")
     except Exception as e:
-        print(f"❌ Exception pour {symbol}: {e}")
+        print(f"❌ Exception pour {symbol} : {e}")
     time.sleep(15)
 
-# 📊 Fusion & traitement final
 if all_dataframes:
     final_df = pd.concat(all_dataframes, ignore_index=True)
     final_df["date"] = pd.to_datetime(final_df["date"])
     final_df[["open", "high", "low", "close"]] = final_df[["open", "high", "low", "close"]].astype(float)
     final_df["volume"] = final_df["volume"].astype(int)
-    final_df = final_df.sort_values(by=["symbol", "date"], ascending=[True, True])
+    final_df = final_df.sort_values(by=["symbol", "date"])
     final_df = final_df[["date", "open", "high", "low", "close", "volume", "symbol"]]
 
-    # 🔁 Conversion en format Google Sheets
-    sheet_values = [final_df.columns.tolist()] + final_df.values.tolist()
-    sheet_values = [[str(cell) for cell in row] for row in sheet_values]
-
-    print("📋 Données prêtes à être envoyées vers Google Sheets")
-
-    # 🔐 Authentification Google
-    creds = Credentials(
-        None,
-        refresh_token=REFRESH_TOKEN,
-        client_id=CLIENT_ID,
-        client_secret=CLIENT_SECRET,
-        token_uri="https://oauth2.googleapis.com/token"
-    )
-
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
+    values = [final_df.columns.tolist()] + final_df.values.tolist()
 
     try:
-        service = build("sheets", "v4", credentials=creds)
-        sheet = service.spreadsheets()
+        creds = Credentials(
+            None,
+            refresh_token=REFRESH_TOKEN,
+            client_id=CLIENT_ID,
+            client_secret=CLIENT_SECRET,
+            token_uri="https://oauth2.googleapis.com/token"
+        )
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
 
-        # 🧹 Effacer les anciennes données
-        sheet.values().clear(
+        sheets_service = build("sheets", "v4", credentials=creds)
+
+        # Vider la feuille avant écriture
+        sheets_service.spreadsheets().values().clear(
             spreadsheetId=SPREADSHEET_ID,
             range=RANGE_NAME
         ).execute()
 
-        # ⬆ Envoyer les nouvelles données
-        sheet.values().update(
+        # Écrire les nouvelles données
+        sheets_service.spreadsheets().values().update(
             spreadsheetId=SPREADSHEET_ID,
             range=RANGE_NAME,
             valueInputOption="RAW",
-            body={"values": sheet_values}
+            body={"values": values}
         ).execute()
 
-        print("✅ Données envoyées vers Google Sheets avec succès")
+        print("✅ Données mises à jour dans Google Sheets avec succès !")
 
     except Exception as e:
         print(f"❌ Erreur lors de l’envoi vers Google Sheets : {e}")
+else:
+    print("⚠️ Aucune donnée extraite.")
