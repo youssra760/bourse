@@ -6,7 +6,6 @@ import pandas as pd
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
 
 # ✅ Variables d'environnement depuis GitHub Actions secrets
 API_KEY = os.environ.get("ALPHAVANTAGE_API_KEY")
@@ -14,11 +13,15 @@ CLIENT_ID = os.environ.get("CLIENT_ID")
 CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 REFRESH_TOKEN = os.environ.get("REFRESH_TOKEN")
 
-# 🏢 Symboles à extraire
-symbols = ["IBM", "AAPL", "META", "TSLA"]
+# ✅ ID du Google Sheets où les données seront écrites
+SPREADSHEET_ID = "1S0WTG-AVXhaVLhSKxOJAngLDvu5rEwmgZOTIfXqwGzU"
+RANGE_NAME = "Feuille1!A1"  # À adapter si l'onglet a été renommé
 
+# 🏢 Symboles boursiers à extraire
+symbols = ["IBM", "AAPL", "META", "TSLA"]
 all_dataframes = []
 
+# 🔄 Extraction des données pour chaque symbole
 for symbol in symbols:
     print(f"🔄 Extraction pour : {symbol}")
     url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={API_KEY}"
@@ -42,33 +45,25 @@ for symbol in symbols:
                 all_dataframes.append(df)
                 print(f"✅ Données transformées pour {symbol}")
             else:
-                print(f"⚠ Pas de données (limite API?) pour {symbol}")
+                print(f"⚠️ Pas de données (limite API ?) pour {symbol}")
         else:
             print(f"❌ Erreur HTTP {response.status_code} pour {symbol}")
     except Exception as e:
         print(f"❌ Exception pour {symbol}: {e}")
-    time.sleep(15)  # respecter la limite API
+    time.sleep(15)  # respecter la limite d'appel API d'Alpha Vantage
 
-# ✅ Sauvegarde dans un fichier CSV
+# 📊 Fusion, nettoyage et tri final
 if all_dataframes:
     final_df = pd.concat(all_dataframes, ignore_index=True)
     final_df["date"] = pd.to_datetime(final_df["date"])
     final_df[["open", "high", "low", "close"]] = final_df[["open", "high", "low", "close"]].astype(float)
     final_df["volume"] = final_df["volume"].astype(int)
-
-    # 🔀 Trier par symbole puis date
     final_df = final_df.sort_values(by=["symbol", "date"], ascending=[True, True])
-
-    # 📋 Réorganiser les colonnes dans le bon ordre
     final_df = final_df[["date", "open", "high", "low", "close", "volume", "symbol"]]
 
-    csv_filename = "bourses.csv"
-    final_df.to_csv(csv_filename, index=False)
-    print("💾 Données sauvegardées localement dans bourses.csv")
+    print("📋 Données prêtes à être envoyées vers Google Sheets")
 
-    # ✅ Upload vers Google Drive
-    print("☁ Upload vers Google Drive...")
-
+    # 🔐 Création des credentials OAuth 2.0
     creds = Credentials(
         None,
         refresh_token=REFRESH_TOKEN,
@@ -80,29 +75,30 @@ if all_dataframes:
     if creds and creds.expired and creds.refresh_token:
         creds.refresh(Request())
 
-    service = build("drive", "v3", credentials=creds)
+    # 📤 Envoi vers Google Sheets
+    sheets_service = build("sheets", "v4", credentials=creds)
 
-    # Chercher s'il existe déjà un fichier avec le même nom
-    query = f"name='{csv_filename}' and mimeType='text/csv' and trashed=false"
-    results = service.files().list(q=query, fields="files(id, name)").execute()
-    items = results.get('files', [])
+    # Préparer les données (entêtes + lignes)
+    values = [final_df.columns.tolist()] + final_df.values.tolist()
 
-    media = MediaFileUpload(csv_filename, mimetype="text/csv")
+    # Vider l’ancienne feuille
+    sheets_service.spreadsheets().values().clear(
+        spreadsheetId=SPREADSHEET_ID,
+        range=RANGE_NAME
+    ).execute()
 
-    if items:
-        # Fichier existe → update
-        file_id = items[0]['id']
-        updated_file = service.files().update(
-            fileId=file_id,
-            media_body=media
-        ).execute()
-        print(f"♻ Fichier mis à jour sur Google Drive (ID: {file_id})")
-    else:
-        # Fichier n'existe pas → create
-        file_metadata = {"name": csv_filename, "mimeType": "text/csv"}
-        uploaded_file = service.files().create(
-            body=file_metadata,
-            media_body=media,
+    # Écrire les nouvelles données
+    sheets_service.spreadsheets().values().update(
+        spreadsheetId=SPREADSHEET_ID,
+        range=RANGE_NAME,
+        valueInputOption="RAW",
+        body={"values": values}
+    ).execute()
+
+    print("✅ Données mises à jour dans Google Sheets avec succès !")
+else:
+    print("⚠️ Aucune donnée à sauvegarder")
+
             fields="id"
         ).execute()
         print(f"✅ Upload réussi ! File ID: {uploaded_file.get('id')}")
