@@ -1,94 +1,80 @@
 import os
+import pandas as pd
 import requests
 import time
-import pandas as pd
 
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
+from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+import gspread
+import gspread_dataframe as gd
+from oauth2client.service_account import ServiceAccountCredentials
 
-# ⚙️ Variables à remplacer par tes vraies valeurs
-CLIENT_ID = "ton_client_id_ici.apps.googleusercontent.com"
-CLIENT_SECRET = "ton_client_secret_ici"
-REFRESH_TOKEN = "ton_refresh_token_ici"
-API_KEY = "ta_clef_alpha_vantage_ici"
+# 1️⃣ — ETAPE 1 : Extraction des données (exemple API)
+try:
+    # Simuler appel API (à remplacer par ton appel réel)
+    response = requests.get("https://api.exemple.com/data")
+    response.raise_for_status()
+    data = response.json()
 
-SPREADSHEET_ID = "1S0WTG-AVXhaVLhSKxOJAngLDvu5rEwmgZOTIfXqwGzU"
-RANGE_NAME = "Feuille1!A1"
+    # Exemple simple de transformation
+    df = pd.DataFrame(data)
 
-symbols = ["IBM", "AAPL", "META", "TSLA"]
-all_dataframes = []
+    # Sauvegarder dans un fichier local CSV
+    csv_file = "data_bourse.csv"
+    df.to_csv(csv_file, index=False)
+    print("✅ Données extraites et sauvegardées localement.")
 
-for symbol in symbols:
-    print(f"🔄 Extraction pour : {symbol}")
-    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={API_KEY}"
-    try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            time_series = data.get("Time Series (Daily)")
-            if time_series:
-                df = pd.DataFrame.from_dict(time_series, orient="index")
-                df = df.rename(columns={
-                    "1. open": "open",
-                    "2. high": "high",
-                    "3. low": "low",
-                    "4. close": "close",
-                    "5. volume": "volume"
-                })
-                df.index.name = "date"
-                df.reset_index(inplace=True)
-                df["symbol"] = symbol
-                all_dataframes.append(df)
-                print(f"✅ Données transformées pour {symbol}")
-            else:
-                print(f"⚠️ Pas de données (limite API?) pour {symbol}")
-        else:
-            print(f"❌ Erreur HTTP {response.status_code} pour {symbol}")
-    except Exception as e:
-        print(f"❌ Exception pour {symbol} : {e}")
-    time.sleep(15)
+except Exception as e:
+    print(f"❌ Erreur d’extraction : {e}")
+    exit(1)
 
-if all_dataframes:
-    final_df = pd.concat(all_dataframes, ignore_index=True)
-    final_df["date"] = pd.to_datetime(final_df["date"])
-    final_df[["open", "high", "low", "close"]] = final_df[["open", "high", "low", "close"]].astype(float)
-    final_df["volume"] = final_df["volume"].astype(int)
-    final_df = final_df.sort_values(by=["symbol", "date"])
-    final_df = final_df[["date", "open", "high", "low", "close", "volume", "symbol"]]
+# 2️⃣ — ETAPE 2 : Upload dans Google Drive
+try:
+    creds_drive = Credentials.from_service_account_file(
+        "credentials.json",
+        scopes=["https://www.googleapis.com/auth/drive"]
+    )
+    drive_service = build("drive", "v3", credentials=creds_drive)
 
-    values = [final_df.columns.tolist()] + final_df.values.tolist()
+    folder_id = os.environ.get("GDRIVE_FOLDER_ID")  # à définir dans les secrets GitHub
 
-    try:
-        creds = Credentials(
-            None,
-            refresh_token=REFRESH_TOKEN,
-            client_id=CLIENT_ID,
-            client_secret=CLIENT_SECRET,
-            token_uri="https://oauth2.googleapis.com/token"
-        )
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+    file_metadata = {
+        "name": csv_file,
+        "parents": [folder_id],
+        "mimeType": "application/vnd.google-apps.spreadsheet"
+    }
 
-        sheets_service = build("sheets", "v4", credentials=creds)
+    media = MediaFileUpload(csv_file, mimetype="text/csv", resumable=True)
+    uploaded = drive_service.files().create(
+        body=file_metadata,
+        media_body=media,
+        fields="id"
+    ).execute()
 
-        # Vider une plage large pour nettoyer la feuille
-        sheets_service.spreadsheets().values().clear(
-            spreadsheetId=SPREADSHEET_ID,
-            range="Feuille1!A1:Z1000"
-        ).execute()
+    print(f"✅ Fichier CSV uploadé sur Google Drive avec ID : {uploaded.get('id')}")
 
-        # Écrire les données
-        sheets_service.spreadsheets().values().update(
-            spreadsheetId=SPREADSHEET_ID,
-            range=RANGE_NAME,
-            valueInputOption="RAW",
-            body={"values": values}
-        ).execute()
+except Exception as e:
+    print(f"❌ Erreur lors de l’upload Google Drive : {e}")
+    exit(1)
 
-        print("✅ Données mises à jour dans Google Sheets avec succès !")
+# 3️⃣ — ETAPE 3 : Mise à jour de Google Sheets
+try:
+    # Connexion à Google Sheets
+    scope = ['https://spreadsheets.google.com/feeds',
+             'https://www.googleapis.com/auth/drive']
 
-    except Exception as e:
-        print(f"❌ Erreur lors de l’envoi vers Google Sheets : {e}")
-else:
-    print("⚠️ Aucune donnée extraite.")
+    credentials_sheets = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+    client = gspread.authorize(credentials_sheets)
+
+    spreadsheet = client.open("Nom_de_ta_Google_Sheet")  # change le nom ici
+    worksheet = spreadsheet.worksheet("Feuille1")
+
+    worksheet.clear()
+    gd.set_with_dataframe(worksheet, df)
+
+    print("✅ Google Sheet mise à jour avec succès.")
+
+except Exception as e:
+    print(f"❌ Erreur lors de la mise à jour Google Sheets : {e}")
+    exit(1)
