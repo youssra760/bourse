@@ -98,8 +98,3 @@ if all_dataframes:
     print("✅ Données mises à jour dans Google Sheets avec succès !")
 else:
     print("⚠️ Aucune donnée à sauvegarder")
-
-        ).execute()
-        print(f"✅ Upload réussi ! File ID: {uploaded_file.get('id')}")
-else:
-    print("❌ Aucune donnée à sauvegarder")
