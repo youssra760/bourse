@@ -99,7 +99,6 @@ if all_dataframes:
 else:
     print("⚠️ Aucune donnée à sauvegarder")
 
-            fields="id"
         ).execute()
         print(f"✅ Upload réussi ! File ID: {uploaded_file.get('id')}")
 else:
