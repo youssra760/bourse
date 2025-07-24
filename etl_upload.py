@@ -8,13 +8,13 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-# Variables d'environnement (à définir dans GitHub Actions ou en dur ici)
+# ✅ Variables d'environnement (à définir dans GitHub Actions)
 API_KEY = os.environ.get("ALPHAVANTAGE_API_KEY")
 CLIENT_ID = os.environ.get("CLIENT_ID")
 CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 REFRESH_TOKEN = os.environ.get("REFRESH_TOKEN")
 
-# Symboles à extraire
+# 🔁 Symboles à extraire
 symbols = ["IBM", "AAPL", "META", "TSLA"]
 all_dataframes = []
 
@@ -57,6 +57,7 @@ if all_dataframes:
     final_df = final_df.sort_values(by=["symbol", "date"], ascending=[True, True])
     final_df = final_df[["date", "open", "high", "low", "close", "volume", "symbol"]]
 
+    # 💾 Enregistrement au format Excel
     excel_filename = "bourses.xlsx"
     final_df.to_excel(excel_filename, index=False)
     print("💾 Données sauvegardées localement dans bourses.xlsx")
@@ -76,7 +77,7 @@ if all_dataframes:
 
     service = build("drive", "v3", credentials=creds)
 
-    # Chercher s'il existe déjà un fichier avec le même nom
+    # Chercher si un fichier Excel du même nom existe déjà
     query = f"name='{excel_filename}' and mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' and trashed=false"
     results = service.files().list(q=query, fields="files(id, name)").execute()
     items = results.get('files', [])
@@ -84,7 +85,6 @@ if all_dataframes:
     media = MediaFileUpload(excel_filename, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     if items:
-        # Fichier existe → update
         file_id = items[0]['id']
         updated_file = service.files().update(
             fileId=file_id,
@@ -92,13 +92,11 @@ if all_dataframes:
         ).execute()
         print(f"♻ Fichier mis à jour sur Google Drive (ID: {file_id})")
     else:
-        # Fichier n'existe pas → create
         file_metadata = {"name": excel_filename, "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
         uploaded_file = service.files().create(
             body=file_metadata,
             media_body=media
         ).execute()
-        print(f"✅ Nouveau fichier Excel créé sur Google Drive (ID: {uploaded_file.get('id')})")
+        print(f"✅ Nouveau fichier créé sur Google Drive (ID: {uploaded_file.get('id')})")
 else:
     print("⚠️ Aucune donnée extraite.")
-
