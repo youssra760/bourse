@@ -57,9 +57,9 @@ if all_dataframes:
     final_df = final_df.sort_values(by=["symbol", "date"], ascending=[True, True])
     final_df = final_df[["date", "open", "high", "low", "close", "volume", "symbol"]]
 
-    csv_filename = "bourses.csv"
-    final_df.to_csv(csv_filename, index=False)
-    print("💾 Données sauvegardées localement dans bourses.csv")
+    excel_filename = "bourses.xlsx"
+    final_df.to_excel(excel_filename, index=False)
+    print("💾 Données sauvegardées localement dans bourses.xlsx")
 
     print("☁ Upload vers Google Drive...")
 
@@ -77,11 +77,11 @@ if all_dataframes:
     service = build("drive", "v3", credentials=creds)
 
     # Chercher s'il existe déjà un fichier avec le même nom
-    query = f"name='{csv_filename}' and mimeType='text/csv' and trashed=false"
+    query = f"name='{excel_filename}' and mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' and trashed=false"
     results = service.files().list(q=query, fields="files(id, name)").execute()
     items = results.get('files', [])
 
-    media = MediaFileUpload(csv_filename, mimetype="text/csv")
+    media = MediaFileUpload(excel_filename, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     if items:
         # Fichier existe → update
@@ -93,12 +93,12 @@ if all_dataframes:
         print(f"♻ Fichier mis à jour sur Google Drive (ID: {file_id})")
     else:
         # Fichier n'existe pas → create
-        file_metadata = {"name": csv_filename, "mimeType": "text/csv"}
+        file_metadata = {"name": excel_filename, "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
         uploaded_file = service.files().create(
             body=file_metadata,
             media_body=media
         ).execute()
-        print(f"✅ Nouveau fichier créé sur Google Drive (ID: {uploaded_file.get('id')})")
+        print(f"✅ Nouveau fichier Excel créé sur Google Drive (ID: {uploaded_file.get('id')})")
 else:
     print("⚠️ Aucune donnée extraite.")
 
