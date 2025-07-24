@@ -1,16 +1,15 @@
 name: Daily ETL and Upload to Google Drive
 
-# 📅 Déclencher tous les jours à 5h du matin + possibilité de lancer manuellement
+# 📅 Déclenchement : tous les jours à 05:00 UTC + possibilité manuelle
 on:
   schedule:
-    - cron: '0 5 * * *'   # tous les jours à 06:00 UTC (07:00 ou 08:00 au Maroc selon saison)
+    - cron: '0 5 * * *'   # 06:00 ou 07:00 au Maroc selon la saison
   workflow_dispatch:
 
 jobs:
   run-etl:
     runs-on: ubuntu-latest
 
-    # 🔒 Variables d'environnement, récupérées depuis tes secrets GitHub
     env:
       CLIENT_ID: ${{ secrets.CLIENT_ID }}
       CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
@@ -18,17 +17,19 @@ jobs:
       ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
 
     steps:
-    - name: Checkout repository
+    - name: 📥 Cloner le dépôt
       uses: actions/checkout@v3
 
-    - name: Set up Python
+    - name: 🐍 Installer Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
 
-    - name: Install dependencies
+    - name: 📦 Installer les dépendances
       run: |
-        pip install -r requirements.txt
-    - name: Run ETL and upload to Google Drive
+        python -m pip install --upgrade pip
+        pip install pandas openpyxl google-api-python-client google-auth google-auth-oauthlib
+
+    - name: 🚀 Lancer le script ETL
       run: |
         python etl_upload.py
