@@ -19,7 +19,7 @@ symbols = ["IBM", "AAPL", "META", "TSLA"]
 all_dataframes = []
 
 for symbol in symbols:
-    print(f"🔄 Extraction pour : {symbol}")
+    print(f" Extraction pour : {symbol}")
     url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={API_KEY}"
     try:
         response = requests.get(url)
@@ -57,7 +57,7 @@ if all_dataframes:
     final_df = final_df.sort_values(by=["symbol", "date"], ascending=[True, True])
     final_df = final_df[["date", "open", "high", "low", "close", "volume", "symbol"]]
 
-    # 💾 Enregistrement au format Excel
+    #  Enregistrement au format Excel
     excel_filename = "bourses.xlsx"
     final_df.to_excel(excel_filename, index=False)
     print(" Données sauvegardées localement dans bourses.xlsx")
@@ -99,4 +99,4 @@ if all_dataframes:
         ).execute()
         print(f" Nouveau fichier créé sur Google Drive (ID: {uploaded_file.get('id')})")
 else:
-    print("⚠ Aucune donnée extraite.")
+    print(" Aucune donnée extraite.")
