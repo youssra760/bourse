@@ -8,13 +8,13 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-# ✅ Variables d'environnement (à définir dans GitHub Actions)
+# Variables d'environnement (à définir dans GitHub Actions)
 API_KEY = os.environ.get("ALPHAVANTAGE_API_KEY")
 CLIENT_ID = os.environ.get("CLIENT_ID")
 CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 REFRESH_TOKEN = os.environ.get("REFRESH_TOKEN")
 
-# 🔁 Symboles à extraire
+# Symboles à extraire
 symbols = ["IBM", "AAPL", "META", "TSLA"]
 all_dataframes = []
 
@@ -39,13 +39,13 @@ for symbol in symbols:
                 df.reset_index(inplace=True)
                 df["symbol"] = symbol
                 all_dataframes.append(df)
-                print(f"✅ Données transformées pour {symbol}")
+                print(f" Données transformées pour {symbol}")
             else:
-                print(f"⚠️ Pas de données (limite API?) pour {symbol}")
+                print(f" Pas de données (limite API?) pour {symbol}")
         else:
-            print(f"❌ Erreur HTTP {response.status_code} pour {symbol}")
+            print(f" Erreur HTTP {response.status_code} pour {symbol}")
     except Exception as e:
-        print(f"❌ Exception pour {symbol}: {e}")
+        print(f" Exception pour {symbol}: {e}")
     time.sleep(15)  # Respecter la limite API
 
 if all_dataframes:
@@ -60,9 +60,9 @@ if all_dataframes:
     # 💾 Enregistrement au format Excel
     excel_filename = "bourses.xlsx"
     final_df.to_excel(excel_filename, index=False)
-    print("💾 Données sauvegardées localement dans bourses.xlsx")
+    print(" Données sauvegardées localement dans bourses.xlsx")
 
-    print("☁ Upload vers Google Drive...")
+    print(" Upload vers Google Drive...")
 
     creds = Credentials(
         None,
@@ -90,13 +90,13 @@ if all_dataframes:
             fileId=file_id,
             media_body=media
         ).execute()
-        print(f"♻ Fichier mis à jour sur Google Drive (ID: {file_id})")
+        print(f" Fichier mis à jour sur Google Drive (ID: {file_id})")
     else:
         file_metadata = {"name": excel_filename, "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
         uploaded_file = service.files().create(
             body=file_metadata,
             media_body=media
         ).execute()
-        print(f"✅ Nouveau fichier créé sur Google Drive (ID: {uploaded_file.get('id')})")
+        print(f" Nouveau fichier créé sur Google Drive (ID: {uploaded_file.get('id')})")
 else:
-    print("⚠️ Aucune donnée extraite.")
+    print("⚠ Aucune donnée extraite.")
