@@ -59,10 +59,19 @@ if all_dataframes:
 
     #  Enregistrement au format Excel
     excel_filename = "bourses.xlsx"
-    final_df.to_excel(excel_filename, index=False, sheet_name="Bourseupdate")
-    print(" Données sauvegardées localement dans bourses.xlsx")
+    with pd.ExcelWriter(excel_filename, engine="xlsxwriter") as writer:
+        final_df.to_excel(writer, index=False, sheet_name="Bourseupdate")
+        
+        # Récupération de l'objet workbook et worksheet
+        workbook = writer.book
+        worksheet = writer.sheets["Bourseupdate"]
+        
+        # Auto-ajuster la largeur des colonnes
+        for i, column in enumerate(final_df.columns):
+            column_width = max(final_df[column].astype(str).map(len).max(), len(column)) + 2
+            worksheet.set_column(i, i, column_width)
 
-    print(" Upload vers Google Drive...")
+    print(" Données sauvegardées localement dans bourses.xlsx")
 
     creds = Credentials(
         None,
