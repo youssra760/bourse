@@ -28,7 +28,7 @@ jobs:
     - name: 📦 Installer les dépendances
       run: |
         python -m pip install --upgrade pip
-        pip install pandas openpyxl google-api-python-client google-auth google-auth-oauthlib
+        pip install pandas openpyxl google-api-python-client google-auth google-auth-oauthlib xlsxwriter
 
     - name: 🚀 Lancer le script ETL
       run: |
