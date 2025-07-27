@@ -59,7 +59,7 @@ if all_dataframes:
 
     #  Enregistrement au format Excel
     excel_filename = "bourses.xlsx"
-    final_df.to_excel(excel_filename, index=False)
+    final_df.to_excel(excel_filename, index=False, sheet_name="Bourseupdate")
     print(" Données sauvegardées localement dans bourses.xlsx")
 
     print(" Upload vers Google Drive...")
