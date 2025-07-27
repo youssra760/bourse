@@ -65,6 +65,9 @@ if all_dataframes:
         # Récupération de l'objet workbook et worksheet
         workbook = writer.book
         worksheet = writer.sheets["Bourseupdate"]
+        date_format = workbook.add_format({'num_format': 'yyyy-mm-dd'})
+        worksheet.set_column(0, 0, 15, date_format)
+
         
         # Auto-ajuster la largeur des colonnes
         for i, column in enumerate(final_df.columns):
