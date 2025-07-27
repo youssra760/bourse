@@ -61,21 +61,23 @@ if all_dataframes:
     excel_filename = "bourses.xlsx"
     with pd.ExcelWriter(excel_filename, engine="xlsxwriter") as writer:
         final_df.to_excel(writer, index=False, sheet_name="Bourseupdate")
-        
+
         # Récupération de l'objet workbook et worksheet
         workbook = writer.book
         worksheet = writer.sheets["Bourseupdate"]
         date_format = workbook.add_format({'num_format': 'yyyy-mm-dd'})
-        worksheet.set_column(0, 0, 15, date_format)
 
-        
-        # Auto-ajuster la largeur des colonnes
+        # Auto-ajuster la largeur des colonnes avec format spécial pour la colonne "date"
         for i, column in enumerate(final_df.columns):
             column_width = max(final_df[column].astype(str).map(len).max(), len(column)) + 2
-            worksheet.set_column(i, i, column_width)
+            if column == "date":
+                worksheet.set_column(i, i, column_width, date_format)
+            else:
+                worksheet.set_column(i, i, column_width)
 
     print(" Données sauvegardées localement dans bourses.xlsx")
 
+    # Authentification et envoi sur Google Drive
     creds = Credentials(
         None,
         refresh_token=REFRESH_TOKEN,
@@ -89,7 +91,7 @@ if all_dataframes:
 
     service = build("drive", "v3", credentials=creds)
 
-    # Chercher si un fichier Excel du même nom existe déjà
+    # Vérifie si un fichier du même nom existe
     query = f"name='{excel_filename}' and mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' and trashed=false"
     results = service.files().list(q=query, fields="files(id, name)").execute()
     items = results.get('files', [])
